@@ -133,8 +133,8 @@
             const code = jsQR(imageData.data, canvas.width, canvas.height);
             if (code) {
                 try {
-                    const url = new URL(code.data);
-                    window.open(url.href, "_blank"); // opens in new tab
+                    // const url = new URL(code.data);
+                    window.open(code.data, "_blank"); // opens in new tab
                 } catch (e) {
                     console.log("Not a valid URL:", code.data);
                     result.textContent = `Invalid QR Code/URL: ${code.data}`;
