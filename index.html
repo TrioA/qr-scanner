@@ -17,19 +17,22 @@
         font-family: monospace;
         overflow: hidden;
       }
+
       video {
-        height: max-content;
-        width: auto;
-        max-width: 90vw;
-        max-height: 75vh;
+        height: auto;
+        width: max-content;
+        max-width: 75vw;
+        max-height: calc(min(40vw, 60vh));
         border: 2px solid #0f0;
         border-radius: 12px;
       }
+
       #result {
         margin-top: 15px;
         text-align: center;
         font-size: 1.1em;
       }
+
       button {
         background: #0f0;
         color: #000;
@@ -42,6 +45,7 @@
       }
     </style>
   </head>
+
   <body>
     <h3>📷 Front/Rear QR Scanner</h3>
     <button id="startBtn">Start Scanner</button>
@@ -127,7 +131,14 @@
               canvas.height
             );
             const code = jsQR(imageData.data, canvas.width, canvas.height);
-            if (code) result.textContent = `Scanned: ${code.data}`;
+            // if (code) result.textContent = `Scanned: ${code.data}`;
+            try {
+              const url = new URL(code.data);
+              window.open(url.href, "_blank"); // opens in new tab
+            } catch (e) {
+              console.log("Not a valid URL:", code.data);
+              result.textContent = `Invalid QR Code/URL: ${code.data}`;
+            }
           }
           requestAnimationFrame(loop);
         };
