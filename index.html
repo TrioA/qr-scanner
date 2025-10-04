@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>QR Scanner Front/Rear</title>
+    <style>
+      body {
+        margin: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        background: #000;
+        color: #0f0;
+        height: 100vh;
+        font-family: monospace;
+        overflow: hidden;
+      }
+      video {
+        height: max-content;
+        width: auto;
+        max-width: 90vw;
+        max-height: 75vh;
+        border: 2px solid #0f0;
+        border-radius: 12px;
+      }
+      #result {
+        margin-top: 15px;
+        text-align: center;
+        font-size: 1.1em;
+      }
+      button {
+        background: #0f0;
+        color: #000;
+        border: none;
+        border-radius: 8px;
+        padding: 10px 16px;
+        margin-top: 15px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+    </style>
+  </head>
+  <body>
+    <h3>📷 Front/Rear QR Scanner</h3>
+    <button id="startBtn">Start Scanner</button>
+    <video id="camera" autoplay playsinline></video>
+    <div id="result">Scanning...</div>
+    <button id="switchBtn">Switch Camera</button>
+
+    <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+    <script>
+      if ("serviceWorker" in navigator) {
+        navigator.serviceWorker
+          .register("sw.js")
+          .then(() => console.log("SW registered"))
+          .catch((err) => console.error("SW error:", err));
+      }
+
+      const video = document.getElementById("camera");
+      const result = document.getElementById("result");
+      const switchBtn = document.getElementById("switchBtn");
+      const startBtn = document.getElementById("startBtn");
+      let stream;
+      let devices = [];
+      let currentDeviceIndex = 0;
+
+      // Front and rear camera IDs (hardcoded for your phone)
+      const camIndices = [1, 2]; // cam1 = front, cam2 = rear
+
+      async function getDevices() {
+        const allDevices = await navigator.mediaDevices.enumerateDevices();
+        devices = allDevices.filter((d) => d.kind === "videoinput");
+        console.log(
+          "Cameras found:",
+          devices.map((d) => d.label || d.deviceId)
+        );
+      }
+
+      async function startCamera(index = 0) {
+        if (stream) stream.getTracks().forEach((t) => t.stop());
+        try {
+          const chosenDevice = devices[camIndices[index]] || {};
+          stream = await navigator.mediaDevices.getUserMedia({
+            video: {
+              deviceId: chosenDevice.deviceId
+                ? { exact: chosenDevice.deviceId }
+                : undefined,
+              width: { ideal: 1920 },
+              height: { ideal: 1080 },
+            },
+          });
+          video.srcObject = stream;
+
+          const track = stream.getVideoTracks()[0];
+          const caps = track.getCapabilities();
+          if (caps.zoom)
+            await track.applyConstraints({
+              advanced: [{ zoom: Math.min(2, caps.zoom.max) }],
+            });
+
+          result.textContent = "Scanning...";
+          scanQRCode(video);
+        } catch (err) {
+          console.error("Camera start error:", err);
+          result.textContent = "❌ Camera error: " + err.message;
+        }
+      }
+
+      function scanQRCode(video) {
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext("2d");
+
+        const loop = () => {
+          if (
+            video.readyState === video.HAVE_ENOUGH_DATA &&
+            typeof jsQR !== "undefined"
+          ) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imageData = ctx.getImageData(
+              0,
+              0,
+              canvas.width,
+              canvas.height
+            );
+            const code = jsQR(imageData.data, canvas.width, canvas.height);
+            if (code) result.textContent = `Scanned: ${code.data}`;
+          }
+          requestAnimationFrame(loop);
+        };
+        loop();
+      }
+
+      // Switch between front and rear
+      switchBtn.addEventListener("click", async () => {
+        currentDeviceIndex = (currentDeviceIndex + 1) % camIndices.length;
+        startCamera(currentDeviceIndex);
+      });
+
+      // Start scanner on user gesture
+      startBtn.addEventListener("click", async () => {
+        startBtn.style.display = "none";
+        await getDevices();
+        startCamera(0); // start with front cam
+      });
+    </script>
+  </body>
+</html>
