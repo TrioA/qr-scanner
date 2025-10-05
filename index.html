@@ -71,7 +71,7 @@
       let currentDeviceIndex = 0;
 
       // Front and rear camera IDs (hardcoded for your phone)
-      const camIndices = [1, 2]; // cam1 = front, cam2 = rear
+      const camIndices = [2, 1]; // cam1 = front, cam2 = rear
 
       async function getDevices() {
         const allDevices = await navigator.mediaDevices.enumerateDevices();
@@ -132,14 +132,14 @@
             );
             const code = jsQR(imageData.data, canvas.width, canvas.height);
             if (code) {
-                try {
-                    // const url = new URL(code.data);
-                    window.open(code.data, "_blank"); // opens in new tab
-                } catch (e) {
-                    console.log("Not a valid URL:", code.data);
-                    result.textContent = `Invalid QR Code/URL: ${code.data}`;
-                }
-                //result.textContent = `Scanned: ${code.data}`;
+              try {
+                // const url = new URL(code.data);
+                window.open(code.data, "_blank"); // opens in new tab
+              } catch (e) {
+                console.log("Not a valid URL:", code.data);
+                result.textContent = `Invalid QR Code/URL: ${code.data}`;
+              }
+              //result.textContent = `Scanned: ${code.data}`;
             }
           }
           requestAnimationFrame(loop);
@@ -153,11 +153,47 @@
         startCamera(currentDeviceIndex);
       });
 
+      window.addEventListener("load", async () => {
+        if (navigator.permissions) {
+          const cam = await navigator.permissions.query({ name: "camera" });
+          if (cam.state === "denied") {
+            result.textContent =
+              "⚠️ Camera permission blocked. Tap Start to retry.";
+            startBtn.style.display = "block";
+          }
+        }
+      });
+
       // Start scanner on user gesture
       startBtn.addEventListener("click", async () => {
         startBtn.style.display = "none";
-        await getDevices();
-        startCamera(2); // start with front cam
+        try {
+          // Ask explicitly for permission if not granted
+          const permission = await navigator.permissions.query({
+            name: "camera",
+          });
+
+          if (permission.state === "denied") {
+            alert(
+              "Camera permission denied. Please enable it in app settings."
+            );
+            startBtn.style.display = "block";
+            return;
+          }
+
+          if (permission.state !== "granted") {
+            // This triggers the camera prompt
+            await navigator.mediaDevices.getUserMedia({ video: true });
+          }
+
+          // Once permission is granted or confirmed, continue
+          await getDevices();
+          await startCamera(0);
+        } catch (err) {
+          console.error("Permission error:", err);
+          result.textContent = "❌ Permission error: " + err.message;
+          startBtn.style.display = "block";
+        }
       });
     </script>
   </body>
